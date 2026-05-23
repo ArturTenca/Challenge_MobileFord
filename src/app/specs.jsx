@@ -1,14 +1,14 @@
 import React, { useRef, useEffect, useState, Suspense } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Dimensions, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
-import { Environment, ContactShadows, Grid } from '@react-three/drei/native';
 import * as THREE from 'three';
-import Svg, { Circle, Path, G, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Text as SvgText } from 'react-native-svg';
 import { fetchFordData } from '../api/fordData';
 import FordRangerRaptor from '../components/FordRangerRaptor';
 
 const { width, height } = Dimensions.get('window');
+const HOTSPOT_SIZE = 40;
 
 const VIEWS = {
   geral_traseira:  { pos: [-8, 1.5, -5],  target: [0, 0, 0], label: 'Traseira' },
@@ -57,14 +57,14 @@ function DonutScore({ score }) {
   );
 }
 
-function Hotspot({ data, isActive, onPress }) {
+function Hotspot({ data, isActive, onPress, viewport }) {
   const panelLeft = data.panelSide === 'left';
   
-  // Convert top/left percentages to actual coordinates
+  // Convert top/left percentages to actual coordinates inside the canvas viewport.
   const topStr = data.top.replace('%', '');
   const leftStr = data.left.replace('%', '');
-  const topPos = (parseFloat(topStr) / 100) * height;
-  const leftPos = (parseFloat(leftStr) / 100) * width;
+  const topPos = viewport.y + (parseFloat(topStr) / 100) * viewport.height - (HOTSPOT_SIZE / 2);
+  const leftPos = viewport.x + (parseFloat(leftStr) / 100) * viewport.width - (HOTSPOT_SIZE / 2);
 
   return (
     <View style={[styles.hotspotContainer, { top: topPos, left: leftPos }]}>
@@ -146,6 +146,7 @@ export default function SpecsPage() {
   
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [canvasViewport, setCanvasViewport] = useState({ x: 0, y: 0, width, height });
 
   useEffect(() => {
     fetchFordData().then(res => {
@@ -167,7 +168,10 @@ export default function SpecsPage() {
 
   return (
     <SafeAreaView style={styles.page}>
-      <View style={styles.canvasContainer}>
+      <View
+        style={styles.canvasContainer}
+        onLayout={({ nativeEvent }) => setCanvasViewport(nativeEvent.layout)}
+      >
         <Canvas camera={{ position: VIEWS['geral_lateral'].pos, fov: 40, near: 0.1, far: 200 }}>
           <CameraController targetView={view} />
           <ambientLight intensity={0.3} />
@@ -187,6 +191,7 @@ export default function SpecsPage() {
             <Hotspot
               key={h.id}
               data={h}
+              viewport={canvasViewport}
               isActive={activeHotspot === h.id}
               onPress={() => setActiveHotspot(activeHotspot === h.id ? null : h.id)}
             />

@@ -2,11 +2,14 @@ import { useGLTF } from '@react-three/drei/native'
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 
+const BLACK_BASE = '#050505'
+const BLACK_METAL = '#0a0a0a'
+
 // Material mapping by mesh name (color-coded from 3ds Max)
 // Groups identified by color: body panel, glass, wheels, chrome, interior, etc.
 const MATERIAL_MAP = {
   wire_134110008: { // dark gold → body paint
-    color: '#000000ff',
+    color: BLACK_BASE,
     roughness: 0.12,
     metalness: 0.85,
     clearcoat: 1.0,
@@ -14,26 +17,26 @@ const MATERIAL_MAP = {
     type: 'physical',
   },
   wire_224198087: { // gold/yellow → chrome / trim
-    color: '#000000ff',
+    color: BLACK_METAL,
     roughness: 0.08,
     metalness: 1.0,
     envMapIntensity: 3,
     type: 'standard',
   },
   wire_177028149: { // purple → interior / plastic
-    color: '#000000ff',
+    color: BLACK_BASE,
     roughness: 0.6,
     metalness: 0.1,
     type: 'standard',
   },
   wire_134006006: { // dark red → underbody / frame
-    color: '#000000ff',
+    color: BLACK_BASE,
     roughness: 0.9,
     metalness: 0.15,
     type: 'standard',
   },
   wire_087224198: { // teal → glass
-    color: '#000000ff',
+    color: BLACK_BASE,
     roughness: 0.04,
     metalness: 0.05,
     transmission: 0.88,
@@ -43,13 +46,13 @@ const MATERIAL_MAP = {
     type: 'physical',
   },
   wire_006134006: { // green → tires / rubber
-    color: '#141414',
+    color: BLACK_BASE,
     roughness: 0.92,
     metalness: 0.0,
     type: 'standard',
   },
   wire_224086086: { // salmon/red → body panels 2
-    color: '#000000ff',
+    color: BLACK_BASE,
     roughness: 0.12,
     metalness: 0.85,
     clearcoat: 1.0,
@@ -57,28 +60,35 @@ const MATERIAL_MAP = {
     type: 'physical',
   },
   wire_229166215: { // pink → lights / lenses
-    color: '#000000ff',
-    emissive: '#ffe88a',
-    emissiveIntensity: 0.6,
+    color: BLACK_BASE,
+    emissive: '#111111',
+    emissiveIntensity: 0.08,
     roughness: 0.05,
     metalness: 0.0,
     type: 'standard',
   },
   wire_028089177: { // blue → rim / wheels
-    color: '#000000ff',
+    color: BLACK_METAL,
     roughness: 0.15,
     metalness: 0.95,
     envMapIntensity: 2.5,
     type: 'standard',
   },
   wire_143224087: { // lime → body accent / orange trim (now matching body)
-    color: '#000000ff',
+    color: BLACK_BASE,
     roughness: 0.12,
     metalness: 0.85,
     clearcoat: 1.0,
     clearcoatRoughness: 0.05,
     type: 'physical',
   },
+}
+
+const FALLBACK_MATERIAL = {
+  color: BLACK_BASE,
+  roughness: 0.3,
+  metalness: 0.35,
+  type: 'standard',
 }
 
 function buildMaterial(cfg) {
@@ -124,6 +134,8 @@ export default function FordRangerRaptor(props) {
         const cfg = MATERIAL_MAP[obj.name]
         if (cfg) {
           obj.material = buildMaterial(cfg)
+        } else {
+          obj.material = buildMaterial(FALLBACK_MATERIAL)
         }
       }
     })
