@@ -118,9 +118,10 @@ function buildMaterial(cfg) {
   })
 }
 
-export default function FordRangerRaptor(props) {
+export default function FordRangerRaptor({ onReady, ...props }) {
   const { scene } = useGLTF(require('../../assets/ford_ranger.glb'))
   const groupRef = useRef()
+  const hasSignaledReadyRef = useRef(false)
 
   useEffect(() => {
     if (!scene) return
@@ -139,7 +140,12 @@ export default function FordRangerRaptor(props) {
         }
       }
     })
-  }, [scene])
+
+    if (!hasSignaledReadyRef.current) {
+      hasSignaledReadyRef.current = true
+      onReady?.()
+    }
+  }, [onReady, scene])
 
   // Model is in mm, ~5376mm long → scale to ~5.4 units (real world meters)
   // Bounds min Y = 0 (sits on ground in original), ground in scene = -1.42
@@ -157,7 +163,10 @@ export default function FordRangerRaptor(props) {
       scale={[scale, scale, scale]}
       position={[0.068, -1.42, 0.446]}
       rotation={[0, Math.PI, 0]}
+      {...props}
     />
   )
 }
+
+useGLTF.preload(require('../../assets/ford_ranger.glb'))
 

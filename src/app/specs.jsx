@@ -1,10 +1,12 @@
 import React, { useRef, useEffect, useState, Suspense } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
+import { useProgress } from '@react-three/drei/native';
 import * as THREE from 'three';
 import Svg, { Circle, Text as SvgText } from 'react-native-svg';
 import { fetchFordData } from '../api/fordData';
+import FordLoadingOverlay from '../components/ford-loading-overlay';
 import FordRangerRaptor from '../components/FordRangerRaptor';
 
 const { width, height } = Dimensions.get('window');
@@ -145,29 +147,27 @@ export default function SpecsPage() {
   const [activeHotspot, setActiveHotspot] = useState(null);
   
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [layoutReady, setLayoutReady] = useState(false);
+  const [modelReady, setModelReady] = useState(false);
   const [canvasViewport, setCanvasViewport] = useState({ x: 0, y: 0, width, height });
+  const { active, progress } = useProgress();
 
   useEffect(() => {
     fetchFordData().then(res => {
       setData(res);
-      setLoading(false);
     });
   }, []);
 
-  if (loading || !data) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#f54b2e" />
-      </View>
-    );
-  }
-
   const view = VIEWS[activeView];
   const showHotspots = activeView === 'geral_lateral';
+  const pageReady = layoutReady && !!data && modelReady;
+  const targetProgress = Math.min(
+    100,
+    (layoutReady ? 12 : 0) + (data ? 18 : 0) + (modelReady ? 70 : (Math.max(progress, active ? progress : 0) * 0.7))
+  );
 
   return (
-    <SafeAreaView style={styles.page}>
+    <SafeAreaView style={styles.page} onLayout={() => setLayoutReady(true)}>
       <View
         style={styles.canvasContainer}
         onLayout={({ nativeEvent }) => setCanvasViewport(nativeEvent.layout)}
@@ -179,13 +179,13 @@ export default function SpecsPage() {
           <directionalLight position={[-8, 8, -5]} intensity={0.8} color="#4a7aff" />
           <pointLight position={[0, 6, -8]} intensity={1.2} color="#f54b2e" />
           <Suspense fallback={null}>
-            <FordRangerRaptor />
+            <FordRangerRaptor onReady={() => setModelReady(true)} />
           </Suspense>
         </Canvas>
       </View>
 
       {/* Hotspots overlay */}
-      {showHotspots && (
+      {!!data && showHotspots && (
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
           {data.hotspots.map(h => (
             <Hotspot
@@ -200,67 +200,75 @@ export default function SpecsPage() {
       )}
 
       {/* Header */}
-      <View style={styles.header} pointerEvents="box-none">
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/')}>
-          <Text style={styles.backBtnText}>← VOLTAR</Text>
-        </TouchableOpacity>
-        <Text style={styles.navTitle}>{data.carInfo.model} · SPECS</Text>
-        <TouchableOpacity style={styles.reportBtn} onPress={() => router.push('/report')}>
-          <Text style={styles.reportBtnText}>RELATÓRIO</Text>
-        </TouchableOpacity>
-      </View>
+      {!!data && (
+        <View style={styles.header} pointerEvents="box-none">
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/')}>
+            <Text style={styles.backBtnText}>← VOLTAR</Text>
+          </TouchableOpacity>
+          <Text style={styles.navTitle}>{data.carInfo.model} · SPECS</Text>
+          <TouchableOpacity style={styles.reportBtn} onPress={() => router.push('/report')}>
+            <Text style={styles.reportBtnText}>RELATÓRIO</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Camera Nav */}
-      <View style={styles.camNav} pointerEvents="box-none">
-        <Text style={styles.camNavLabel}>EXPLORAR</Text>
-        {NAV_CATEGORIES.map(cat => (
-          <View key={cat.id}>
-            <TouchableOpacity 
-              style={[styles.camCategory, openCategory === cat.id && styles.camCategoryActive]}
-              onPress={() => setOpenCategory(openCategory === cat.id ? null : cat.id)}
-            >
-              <Text style={[styles.camCategoryText, openCategory === cat.id && styles.camCategoryTextActive]}>
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-            
-            {openCategory === cat.id && (
-              <View style={styles.camChildren}>
-                {cat.children.map(viewId => (
-                  <TouchableOpacity
-                    key={viewId}
-                    style={[styles.camChild, activeView === viewId && styles.camChildActive]}
-                    onPress={() => { setActiveView(viewId); setActiveHotspot(null); }}
-                  >
-                    <Text style={[styles.camChildText, activeView === viewId && styles.camChildTextActive]}>
-                      {VIEWS[viewId].label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-        ))}
-      </View>
-
-      {/* Specs Panel */}
-      <View style={styles.specsPanel}>
-        <View style={styles.specsTabs}>
-          {data.specs.map((sec, i) => (
-            <TouchableOpacity key={i} style={[styles.specsTab, activeSection === i && styles.specsTabActive]} onPress={() => setActiveSection(i)}>
-              <Text style={[styles.specsTabText, activeSection === i && styles.specsTabTextActive]}>{sec.section}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.specsTable}>
-          {data.specs[activeSection].items.map((item, idx) => (
-            <View key={idx} style={styles.specsRow}>
-              <Text style={styles.specsRowLabel}>{item.label}</Text>
-              <Text style={styles.specsRowValue}>{item.value}</Text>
+      {!!data && (
+        <View style={styles.camNav} pointerEvents="box-none">
+          <Text style={styles.camNavLabel}>EXPLORAR</Text>
+          {NAV_CATEGORIES.map(cat => (
+            <View key={cat.id}>
+              <TouchableOpacity 
+                style={[styles.camCategory, openCategory === cat.id && styles.camCategoryActive]}
+                onPress={() => setOpenCategory(openCategory === cat.id ? null : cat.id)}
+              >
+                <Text style={[styles.camCategoryText, openCategory === cat.id && styles.camCategoryTextActive]}>
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+              
+              {openCategory === cat.id && (
+                <View style={styles.camChildren}>
+                  {cat.children.map(viewId => (
+                    <TouchableOpacity
+                      key={viewId}
+                      style={[styles.camChild, activeView === viewId && styles.camChildActive]}
+                      onPress={() => { setActiveView(viewId); setActiveHotspot(null); }}
+                    >
+                      <Text style={[styles.camChildText, activeView === viewId && styles.camChildTextActive]}>
+                        {VIEWS[viewId].label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
           ))}
         </View>
-      </View>
+      )}
+
+      {/* Specs Panel */}
+      {!!data && (
+        <View style={styles.specsPanel}>
+          <View style={styles.specsTabs}>
+            {data.specs.map((sec, i) => (
+              <TouchableOpacity key={i} style={[styles.specsTab, activeSection === i && styles.specsTabActive]} onPress={() => setActiveSection(i)}>
+                <Text style={[styles.specsTabText, activeSection === i && styles.specsTabTextActive]}>{sec.section}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.specsTable}>
+            {data.specs[activeSection].items.map((item, idx) => (
+              <View key={idx} style={styles.specsRow}>
+                <Text style={styles.specsRowLabel}>{item.label}</Text>
+                <Text style={styles.specsRowValue}>{item.value}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      <FordLoadingOverlay visible={!pageReady} progress={pageReady ? 100 : targetProgress} caption="Carregando especificacoes" />
 
     </SafeAreaView>
   );
@@ -268,7 +276,6 @@ export default function SpecsPage() {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#080a0e' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#080a0e' },
   canvasContainer: { ...StyleSheet.absoluteFillObject },
   
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, zIndex: 10 },

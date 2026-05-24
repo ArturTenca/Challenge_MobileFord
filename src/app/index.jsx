@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import { Canvas } from '@react-three/fiber/native';
-import { ContactShadows, OrbitControls } from '@react-three/drei/native';
+import { ContactShadows, OrbitControls, useProgress } from '@react-three/drei/native';
+import FordLoadingOverlay from '../components/ford-loading-overlay';
 import FordRangerRaptor from '../components/FordRangerRaptor';
 
 const { width, height } = Dimensions.get('window');
@@ -22,7 +23,13 @@ const specs = [
   { label: 'Tração', value: '4x4 inteligente' },
 ];
 
-function HeroScene() {
+const TOP_NAV_ITEMS = [
+  { label: 'Início', route: '/' },
+  { label: 'Specs', route: '/specs' },
+  { label: 'Relatório', route: '/report' },
+];
+
+function HeroScene({ onModelReady }) {
   return (
     <Canvas camera={{ position: [6.2, 1.1, 7.8], fov: 40, near: 0.1, far: 200 }}>
       <ambientLight intensity={0.3} />
@@ -30,7 +37,7 @@ function HeroScene() {
       <directionalLight position={[-8, 8, -5]} intensity={0.8} color="#4a7aff" />
       <pointLight position={[0, 6, -8]} intensity={1.2} color="#f54b2e" />
       <Suspense fallback={null}>
-        <FordRangerRaptor />
+        <FordRangerRaptor onReady={onModelReady} />
       </Suspense>
       <ContactShadows
         position={[0, -1.42, 0]}
@@ -43,14 +50,17 @@ function HeroScene() {
       <OrbitControls
         target={[0, -0.1, 0.2]}
         enablePan={false}
+        enabled
         enableZoom
-        minDistance={5.2}
-        maxDistance={10.5}
-        minPolarAngle={0.75}
-        maxPolarAngle={1.45}
+        enableRotate
+        minDistance={6.8}
+        maxDistance={8.2}
+        minPolarAngle={0.9}
+        maxPolarAngle={1.2}
         enableDamping
         dampingFactor={0.08}
-        rotateSpeed={0.85}
+        rotateSpeed={0.55}
+        zoomSpeed={0.45}
       />
     </Canvas>
   );
@@ -59,18 +69,29 @@ function HeroScene() {
 export default function Home() {
   const router = useRouter();
   const [visible, setVisible] = useState(false);
+  const [layoutReady, setLayoutReady] = useState(false);
+  const [modelReady, setModelReady] = useState(false);
+  const { active, progress } = useProgress();
   const isCompact = width < 860;
 
+  const targetProgress = Math.min(
+    100,
+    (layoutReady ? 18 : 0) + (modelReady ? 82 : (Math.max(progress, active ? progress : 0) * 0.82))
+  );
+  const pageReady = layoutReady && modelReady;
+
   useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 200);
+    if (!pageReady) return;
+
+    const t = setTimeout(() => setVisible(true), 120);
     return () => clearTimeout(t);
-  }, []);
+  }, [pageReady]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} onLayout={() => setLayoutReady(true)}>
       <View style={styles.background} />
       <View style={styles.canvasWrap}>
-        <HeroScene />
+        <HeroScene onModelReady={() => setModelReady(true)} />
       </View>
       <View style={styles.topGlow} pointerEvents="none" />
       <View style={styles.bottomShade} pointerEvents="none" />
@@ -86,63 +107,68 @@ export default function Home() {
           </TouchableOpacity>
 
           <View style={[styles.nav, isCompact && styles.navCompact]}>
-            <TouchableOpacity>
-              <Text style={styles.navLink}>Modelos</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/specs')}>
-              <Text style={styles.navLink}>Configurar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity>
-              <Text style={styles.navLink}>Dealer</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.ctaSmall} onPress={() => router.push('/report')}>
-              <Text style={styles.ctaSmallText}>Solicitar Proposta</Text>
-            </TouchableOpacity>
+            {TOP_NAV_ITEMS.map((item) => {
+              const isActive = item.route === '/';
+
+              return (
+                <TouchableOpacity
+                  key={item.route}
+                  style={[styles.navItem, isActive && styles.navItemActive]}
+                  onPress={() => router.push(item.route)}
+                >
+                  <Text selectable={false} style={[styles.navLink, isActive && styles.navLinkActive]}>{item.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
         <View style={[styles.leftPanel, isCompact && styles.leftPanelCompact]}>
-          <Text style={styles.eyebrow}>Built Ford Tough™</Text>
-          <View style={styles.titleContainer}>
-            <Text style={styles.titleF}>Ranger</Text>
-            <Text style={styles.titleSub}>Raptor</Text>
-          </View>
-          <Text style={styles.description}>
-            A pickup mais capaz fora de estrada. Design agressivo,
-            suspensão Fox Racing e tecnologia de última geração para
-            dominar qualquer terreno.
-          </Text>
+          <View pointerEvents="none" style={styles.leftPanelContent}>
+            <Text selectable={false} style={styles.eyebrow}>Built Ford Tough™</Text>
+            <View style={styles.titleContainer}>
+              <Text selectable={false} style={styles.titleF}>Ranger</Text>
+              <Text selectable={false} style={styles.titleSub}>Raptor</Text>
+            </View>
+            <Text selectable={false} style={styles.description}>
+              A pickup mais capaz fora de estrada. Design agressivo,
+              suspensão Fox Racing e tecnologia de última geração para
+              dominar qualquer terreno.
+            </Text>
 
-          <View style={styles.specsGrid}>
-            {specs.map((s) => (
-              <View key={s.label} style={styles.specItem}>
-                <Text style={styles.specValue}>{s.value}</Text>
-                <Text style={styles.specLabel}>{s.label}</Text>
-              </View>
-            ))}
+            <View style={styles.specsGrid}>
+              {specs.map((s) => (
+                <View key={s.label} style={styles.specItem}>
+                  <Text selectable={false} style={styles.specValue}>{s.value}</Text>
+                  <Text selectable={false} style={styles.specLabel}>{s.label}</Text>
+                </View>
+              ))}
+            </View>
           </View>
 
           <View style={[styles.actions, isCompact && styles.actionsCompact]}>
             <TouchableOpacity style={styles.btnPrimary} onPress={() => router.push('/specs')}>
-              <Text style={styles.btnPrimaryText}>VER SPECS</Text>
+              <Text selectable={false} style={styles.btnPrimaryText}>VER SPECS</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.btnSecondary} onPress={() => router.push('/report')}>
-              <Text style={styles.btnSecondaryText}>RELATÓRIO</Text>
+              <Text selectable={false} style={styles.btnSecondaryText}>RELATÓRIO</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={[styles.hint, isCompact && styles.hintCompact]} pointerEvents="none">
-          <Text style={styles.hintIcon}>⟳</Text>
-          <Text style={styles.hintText}>Arraste para explorar o veículo</Text>
+          <Text selectable={false} style={styles.hintIcon}>⟳</Text>
+          <Text selectable={false} style={styles.hintText}>Arraste para explorar o veículo</Text>
         </View>
 
         <View style={[styles.badge, isCompact && styles.badgeCompact]} pointerEvents="none">
-          <Text style={styles.badgeYear}>2026</Text>
+          <Text selectable={false} style={styles.badgeYear}>2026</Text>
           <View style={styles.badgeLine} />
-          <Text style={styles.badgeText}>SÉRIE{'\n'}ESPECIAL</Text>
+          <Text selectable={false} style={styles.badgeText}>SÉRIE{'\n'}ESPECIAL</Text>
         </View>
       </View>
+
+      <FordLoadingOverlay visible={!pageReady} progress={pageReady ? 100 : targetProgress} caption="Carregando modelo 3D" />
     </SafeAreaView>
   );
 }
@@ -181,6 +207,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 18,
     opacity: 0,
+    userSelect: 'none',
   },
   visible: {
     opacity: 1,
@@ -203,10 +230,20 @@ const styles = StyleSheet.create({
   nav: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 18,
+    gap: 12,
   },
   navCompact: {
-    gap: 10,
+    gap: 8,
+  },
+  navItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(8,10,14,0.42)',
+  },
+  navItemActive: {
+    borderColor: 'rgba(245,75,46,0.55)',
   },
   navLink: {
     color: '#9aa0ad',
@@ -215,26 +252,19 @@ const styles = StyleSheet.create({
     letterSpacing: 1.3,
     textTransform: 'uppercase',
   },
-  ctaSmall: {
-    borderWidth: 1,
-    borderColor: '#f54b2e',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    backgroundColor: 'rgba(8,10,14,0.55)',
-  },
-  ctaSmallText: {
+  navLinkActive: {
     color: '#f54b2e',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
   },
   leftPanel: {
     position: 'absolute',
     left: 28,
     top: height * 0.24,
+    bottom: 50,
     maxWidth: 390,
     zIndex: 10,
+  },
+  leftPanelContent: {
+    userSelect: 'none',
   },
   leftPanelCompact: {
     top: 104,
@@ -305,6 +335,7 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: 14,
+    marginBottom: 50,
   },
   actionsCompact: {
     flexWrap: 'wrap',
