@@ -18,7 +18,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/favicon.svg"
+      "favicon": "./assets/expo.icon/Assets/grid.png"
     },
     "plugins": [
       ["expo-router", { "root": "./src/app" }],
